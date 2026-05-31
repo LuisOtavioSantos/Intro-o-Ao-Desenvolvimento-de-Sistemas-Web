@@ -1,0 +1,126 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: mysql_db
+    restart: always
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_DATABASE: rest_db
+      MYSQL_USER: user
+      MYSQL_PASSWORD: kwd2%/O.?NSN4ZwWXJ[Z
+      MYSQL_ROOT_PASSWORD: kwd2%/O.?NSN4ZwWXJ[Z
+    ports:
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - ./mysql_global_data:/var/lib/mysql
+    healthcheck:
+      test: [ "CMD-SHELL", "mysqladmin ping -h localhost -uuser -p$$MYSQL_PASSWORD || exit 1" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - backend
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ./ollama_global_data:/root/.ollama
+    networks:
+      - backend
+
+  ollama-pull:
+    image: curlimages/curl:latest
+    container_name: ollama_pull
+    depends_on:
+      - ollama
+    networks:
+      - backend
+    command: >
+      sh -c "echo 'Aguardando Ollama iniciar...' && sleep 5 && echo 'Fazendo pull do Llama 3.2...' && curl -X POST http://ollama:11434/api/pull -d '{\"name\": \"llama3.2\"}'"
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: mailpit
+    ports:
+      - "127.0.0.1:1025:1025" # SMTP local
+      - "127.0.0.1:8025:8025" # Webmail GUI local
+    networks:
+      - backend
+
+  backend:
+    build:
+      context: ./backend/rest/rest
+      dockerfile: Dockerfile.dev
+    container_name: spring_app
+    ports:
+      - "127.0.0.1:8090:8090"
+    depends_on:
+      db:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+      mailpit:
+        condition: service_started
+    env_file:
+      - ./backend/.env
+    environment:
+      SERVER_PORT: 8090
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/rest_db?createDatabaseIfNotExist=true&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false
+      SPRING_DATASOURCE_USERNAME: user
+      SPRING_DATASOURCE_PASSWORD: kwd2%/O.?NSN4ZwWXJ[Z
+      SPRING_PROFILES_ACTIVE: dev
+      OLLAMA_URL: http://ollama:11434
+      SPRING_MAIL_HOST: mailpit
+      SPRING_MAIL_PORT: 1025
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: "false"
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: "false"
+    volumes:
+      - maven-cache:/root/.m2
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./backend/rest/rest
+          target: /app
+          ignore:
+            - target/
+            - .mvn/
+            - logs/
+    networks:
+      - backend
+
+  frontend:
+    build:
+      context: ./frontend/web
+      dockerfile: Dockerfile.dev
+    container_name: nextjs_web_frontend
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - backend
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8090
+    volumes:
+      # Sincronização em tempo real do frontend
+      # - ./frontend/web:/app
+      - /app/node_modules
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./frontend/web
+          target: /app
+          ignore:
+            - .next/
+            - node_modules/
+    networks:
+      - backend
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  maven-cache:

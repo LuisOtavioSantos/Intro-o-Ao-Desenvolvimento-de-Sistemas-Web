@@ -1,0 +1,66 @@
+services:
+  db_prod:
+    image: mysql:8.0
+    container_name: mysql_prod_db
+    restart: always
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_DATABASE: rest_db
+      MYSQL_USER: user
+      MYSQL_PASSWORD: kwd2%/O.?NSN4ZwWXJ[Z
+      MYSQL_ROOT_PASSWORD: kwd2%/O.?NSN4ZwWXJ[Z
+    ports:
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - ./mysql_prod_data:/var/lib/mysql
+    healthcheck:
+      test: [ "CMD-SHELL", "mysqladmin ping -h localhost -uuser -p$$MYSQL_PASSWORD || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - prod_network
+
+  backend_prod:
+    build:
+      context: ./EXEMPLO1/rest/rest
+      dockerfile: Dockerfile
+    container_name: spring_app_prod
+    restart: always
+    ports:
+      - "127.0.0.1:8090:8080" # Backend roda na 8080 internamente (ver application-prod.yml), mapeado para 8090 fora
+    depends_on:
+      db_prod:
+        condition: service_healthy
+    env_file:
+      - ./EXEMPLO1/.env
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://db_prod:3306/rest_db?createDatabaseIfNotExist=true&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false
+      SPRING_DATASOURCE_USERNAME: user
+      SPRING_DATASOURCE_PASSWORD: kwd2%/O.?NSN4ZwWXJ[Z
+      SPRING_PROFILES_ACTIVE: prod
+      # O provedor de IA e e-mail usarão o Gemini e Gmail por padrão, lendo do .env
+    volumes:
+      - ./uploads:/app/uploads
+    networks:
+      - prod_network
+
+  frontend_prod:
+    build:
+      context: ./EXEMPLO3/web
+      dockerfile: Dockerfile
+    container_name: nextjs_web_prod
+    restart: always
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - backend_prod
+    environment:
+      # Next.js Server Components e Client Components em Produção
+      - NEXT_PUBLIC_API_URL=http://localhost:8090
+    networks:
+      - prod_network
+
+networks:
+  prod_network:
+    driver: bridge

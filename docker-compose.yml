@@ -1,0 +1,78 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: mysql-rest-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: rest_db
+      MYSQL_USER: user
+      MYSQL_PASSWORD: "kwd2%/O.?NSN4ZwWXJ[Z"
+    ports:
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "user", "-pkwd2%/O.?NSN4ZwWXJ[Z"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./EXEMPLO1/rest/rest
+      dockerfile: Dockerfile.dev
+    container_name: spring-boot-backend
+    restart: always
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      DB_URL: jdbc:mysql://db:3306/rest_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      DB_USER: user
+      DB_PASSWORD: "kwd2%/O.?NSN4ZwWXJ[Z"
+      ADMIN_EMAIL: admin@rest.com
+      ADMIN_PASSWORD: admin123
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./EXEMPLO1/rest/rest:/app
+      - ./uploads:/app/uploads
+      - maven-cache:/root/.m2
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./EXEMPLO1/rest/rest
+          target: /app
+          ignore:
+            - target/
+            - .mvn/
+            - logs/
+
+  frontend:
+    build: ./EXEMPLO2/ecommerce-frontend
+    container_name: react-ecommerce-frontend
+    restart: always
+    ports:
+      - "127.0.0.1:5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8080
+    depends_on:
+      - backend
+    volumes:
+      - ./EXEMPLO2/ecommerce-frontend:/app
+      - /app/node_modules
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./EXEMPLO2/ecommerce-frontend
+          target: /app
+          ignore:
+            - dist/
+            - node_modules/
+
+volumes:
+  mysql_data:
+    driver: local
+  maven-cache:
