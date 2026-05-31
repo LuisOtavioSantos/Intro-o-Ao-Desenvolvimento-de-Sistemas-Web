@@ -20,7 +20,7 @@ Os componentes deste projeto são versionados e mantidos em repositórios separa
 Para obter todo o ambiente configurado com as pastas do frontend e backend integradas, utilize o comando de clonagem recursiva do Git:
 
 ```bash
-git clone --recursive https://github.com/LuisOtavioSantos/Introdu-o-Ao-Desenvolvimento-de-Sistemas-Web.git
+git clone --recursive https://github.com/LuisOtavioSantos/Intro-o-Ao-Desenvolvimento-de-Sistemas-Web.git
 ```
 
 Se você já clonou o repositório sem a flag `--recursive`, inicialize os submódulos rodando dentro da raiz:
